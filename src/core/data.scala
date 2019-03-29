@@ -451,12 +451,38 @@ case class Compilation(
           }
     } yield ()
 
-  def savePom(io: Io, ref: ModuleRef, knownDependencies: Set[Binary], dest: Path, layout: Layout): Try[Unit] = {
+  def savePom(io: Io, ref: ModuleRef, knownDependencies: Set[Binary], dest: Path, layout: Layout): Try[(shuttlecraft.Artifact, Path)] = {
+    //TODO we assume that the JAR has already been generated and has the correct name
+    val jar = (dest / str"${basename(ref)}.jar")
+    val artifact = createArtifact(ref, knownDependencies, jar)
+    val pom = dest / s"${ref.projectId.key}-${ref.moduleId.key}-0.0.1-SNAPSHOT.pom"
+    for {
+      _ <- ~io.println(msg"Writing POM file ${layout.pomFile(hash(ref))}")
+      tempPom <- shuttlecraft.Pom.generatePom(artifact)(layout.sharedDir.javaPath)
+      _ <- ~io.println(msg"Saving POM file to $pom")
+      _ <- Path(tempPom).copyTo(pom)
+    } yield (artifact, pom)
+  }
+
+  def deploy(io: Io, artifact: shuttlecraft.Artifact, layout: Layout, remoteUrl: String): Try[Unit] = {
+    //TODO we assume that we are deploying to a Nexus snapshot repository
+    val remoteRepo = new repository.NexusRepository(uri = "", snapshotUri = remoteUrl)
+    //TODO user should supply credentials using a prompt or a file
+    io.println("wat?")
+    val res: Try[Unit] = for{
+      _ <- ~io.println(msg"Deploying ${artifact.artifactId} v${artifact.version} to $remoteUrl")
+      _ <- remoteRepo.publish(artifact, "admin" -> "admin123")(layout.workDir.javaPath)
+      _ <- ~io.println(msg"Deployed ${artifact.artifactId}")
+    } yield ()
+    res
+  }
+
+  private def createArtifact(ref: ModuleRef, knownDependencies: Set[Binary], jar: Path): shuttlecraft.Artifact = {
     // TODO Pass the version as a command line argument
     // TODO What about group ID?
     // TODO Allow the user to provide author and license information
     val artifactName = str"${ref.projectId.key}-${ref.moduleId.key}"
-    val artifact = shuttlecraft.Artifact(
+    shuttlecraft.Artifact(
       groupId = "com.example",
       artifactId = artifactName,
       version = "0.0.1-SNAPSHOT",
@@ -465,15 +491,8 @@ case class Compilation(
       dependencies = knownDependencies.map{
         case Binary(_, gr, ar, ve) => (gr, ar, ve)
       },
-      jar = (dest / str"${basename(ref)}.jar").javaPath
+      jar = jar.javaPath
     )
-    for {
-      _ <- ~io.println(msg"Writing POM file ${layout.pomFile(hash(ref))}")
-      pomFile <- shuttlecraft.Pom.generatePom(artifact)(layout.sharedDir.javaPath)
-      path <- ~(dest / s"${ref.projectId.key}-${ref.moduleId.key}-0.0.1-SNAPSHOT.pom")
-      _ <- ~io.println(msg"Saving POM file to $path")
-      _ <- Path(pomFile).copyTo(path)
-    } yield ()
   }
 
   private def basename(ref: ModuleRef): String = {

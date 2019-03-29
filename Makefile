@@ -57,19 +57,19 @@ bootstrap/scala:
 	mkdir -p $@
 	curl https://downloads.lightbend.com/scala/2.12.8/scala-2.12.8.tgz | tar xvz -C $@ --strip 1
 
-bootstrap/git/shuttlecraft: bootstrap/git/.dir
+bootstrap/git/shuttlecraft:
 	mkdir -p $@
 	git clone https://github.com/VirtusLab/shuttlecraft.git $@ --branch=master
 
-bootstrap/git/scalaj-http: bootstrap/git/.dir
+bootstrap/git/scalaj-http:
 	mkdir -p $@
 	git clone https://github.com/scalaj/scalaj-http.git $@ --branch=master
 
-bootstrap/git/scalaj-http.fury: bootstrap/git/.dir
+bootstrap/git/scalaj-http.fury:
 	mkdir -p $@
 	git clone https://github.com/odisseus/scalaj-http.fury.git $@ --branch=master
 
-bootstrap/git/%: bootstrap/git/.dir
+bootstrap/git/%:
 	mkdir -p $@
 	git clone https://github.com/propensive/$*.git $@ --branch=fury
 
@@ -116,7 +116,6 @@ dist/bundle/lib/%.jar: bootstrap/bin bootstrap/bin/fury/.version dist/bundle/lib
 
 %/.dir:
 	mkdir -p ${@D}
-	touch $@
 
 dist/bundle/bin/fury: $(foreach D, $(BINDEPS), dist/bundle/bin/$(D))
 	cp etc/fury $@
